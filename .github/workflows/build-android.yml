@@ -1,0 +1,39 @@
+name: Build CasaOS Android
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Compile Android ARM64 Binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: Build CasaOS Daemon (ARM64 PIE)
+        env:
+          GOOS: linux
+          GOARCH: arm64
+          CGO_ENABLED: '0'
+        run: |
+          go build -tags android -buildmode=pie -ldflags="-s -w" -o build/sysroot/usr/bin/casaos main.go
+
+      - name: Build CasaOS Supervisor (ARM64 PIE)
+        env:
+          GOOS: linux
+          GOARCH: arm64
+          CGO_ENABLED: '0'
+        run: |
+          go build -tags android -buildmode=pie -ldflags="-s -w" -o build/sysroot/usr/bin/casaos-supervisor cmd/supervisor/main.go
