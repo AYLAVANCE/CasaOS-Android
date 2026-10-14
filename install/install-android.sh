@@ -31,9 +31,14 @@ pkg update -y && pkg upgrade -y
 echo -e "${YELLOW}Installing dependencies...${NC}"
 pkg install -y termux-api termux-tools openssl git golang
 
-echo -e "${YELLOW}Requesting Android storage permission...${NC}"
-termux-setup-storage
-sleep 2
+echo -e "${YELLOW}Checking Android storage permission...${NC}"
+if [ ! -d "$HOME/storage" ]; then
+    echo -e "${YELLOW}Requesting Android storage permission...${NC}"
+    termux-setup-storage || true
+    sleep 2
+else
+    echo -e "${GREEN}Storage directory (~/storage) already configured, skipping.${NC}"
+fi
 
 echo -e "${YELLOW}Setting up directory structure...${NC}"
 mkdir -p ~/.casaos/{data,run,log,db,www,appdata,containers,tmp,conf}
@@ -59,14 +64,17 @@ else
 fi
 
 echo -e "${YELLOW}Acquiring wake lock...${NC}"
-termux-wake-lock
+termux-wake-lock || true
 
 echo -e "${YELLOW}Disabling Phantom Process Killer (Instructions)${NC}"
 echo -e "${BLUE}To prevent Termux from being killed by Android, run this via ADB from a PC:${NC}"
 echo -e "adb shell \"/system/bin/device_config put activity_manager max_phantom_processes 2147483647\""
 
 echo -e "${GREEN}Installation Complete!${NC}"
-IP=$(ifconfig wlan0 | grep 'inet ' | awk '{print $2}')
+IP=$(ip -4 addr show wlan0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n1)
+if [ -z "$IP" ]; then
+    IP=$(ifconfig wlan0 2>/dev/null | grep 'inet ' | awk '{print $2}')
+fi
 if [ -z "$IP" ]; then
     IP="localhost"
 fi
