@@ -173,8 +173,10 @@ func GetSwagger() (*openapi3.T, error) {
 		}
 	}
 
-	// Clear servers to avoid validation issues
-	spec.Servers = nil
+	// Ensure valid servers slice
+	if len(spec.Servers) == 0 {
+		spec.Servers = openapi3.Servers{&openapi3.Server{URL: "/v2/casaos"}}
+	}
 
 	swaggerSpec = spec
 	return spec, nil

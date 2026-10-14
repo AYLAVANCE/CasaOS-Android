@@ -40,7 +40,12 @@ func init() {
 
 	_swagger = swagger
 
-	u, err := url.Parse(_swagger.Servers[0].URL)
+	serverURL := "/v2/casaos"
+	if len(_swagger.Servers) > 0 && _swagger.Servers[0] != nil && _swagger.Servers[0].URL != "" {
+		serverURL = _swagger.Servers[0].URL
+	}
+
+	u, err := url.Parse(serverURL)
 	if err != nil {
 		panic(err)
 	}
