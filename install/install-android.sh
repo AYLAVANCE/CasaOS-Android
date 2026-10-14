@@ -39,14 +39,14 @@ echo -e "${YELLOW}Setting up directory structure...${NC}"
 mkdir -p ~/.casaos/{data,run,log,db,www,appdata,containers,tmp,conf}
 mkdir -p $PREFIX/etc/casaos
 
-echo -e "${YELLOW}Downloading CasaOS source...${NC}"
-if [ -d "CasaOS" ]; then
-    echo -e "${YELLOW}CasaOS directory already exists, skipping clone.${NC}"
+echo -e "${YELLOW}Downloading CasaOS Android source...${NC}"
+if [ -d "CasaOS-Android" ]; then
+    echo -e "${YELLOW}CasaOS-Android directory already exists, updating repo...${NC}"
+    cd CasaOS-Android && git pull || true
 else
-    git clone https://github.com/IceWhaleTech/CasaOS.git || true
+    git clone https://github.com/AYLAVANCE/CasaOS-Android.git
+    cd CasaOS-Android
 fi
-
-cd CasaOS
 
 echo -e "${YELLOW}Building CasaOS...${NC}"
 go build -tags android -buildmode=pie -o $PREFIX/bin/casaos main.go

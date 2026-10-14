@@ -14,13 +14,11 @@ This port completely strips out Linux distribution dependencies (`systemd`, `lsb
 
 ## ⚡ Quick Start: One-Line Installation
 
-Open **Termux** on your Android device and paste:
+Open **Termux** on your Android device and run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<YOUR_GITHUB_USERNAME>/CasaOS-Android/main/install/install-android.sh | bash
+curl -fsSL https://raw.githubusercontent.com/AYLAVANCE/CasaOS-Android/main/install/install-android.sh | bash
 ```
-
-> **Note:** Replace `<YOUR_GITHUB_USERNAME>` with your GitHub username or organization handle after publishing.
 
 Once the installer finishes, open your browser and navigate to:
 ```text
@@ -135,7 +133,7 @@ If you want to compile the binaries yourself within Termux or cross-compile from
 ### On Termux (Direct Build)
 ```bash
 pkg install golang git make -y
-git clone https://github.com/<YOUR_GITHUB_USERNAME>/CasaOS-Android.git
+git clone https://github.com/AYLAVANCE/CasaOS-Android.git
 cd CasaOS-Android
 
 # Build Core and Supervisor
