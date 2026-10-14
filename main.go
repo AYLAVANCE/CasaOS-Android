@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/IceWhaleTech/CasaOS-Common/model"
@@ -65,12 +67,24 @@ func init() {
 	println("git commit:", commit)
 	println("build date:", date)
 
+	platform.Init()
+
 	config.InitSetup(*configFlag, _confSample)
 
 	logger.LogInit(config.AppInfo.LogPath, config.AppInfo.LogSaveName, config.AppInfo.LogFileExt)
 	if len(*dbFlag) == 0 {
-		*dbFlag = config.AppInfo.DBPath + "/db"
+		*dbFlag = filepath.Join(config.AppInfo.DBPath, "db")
 	}
+
+	if platform.IsAndroid() && (strings.HasPrefix(*dbFlag, "/var/") || strings.HasPrefix(*dbFlag, "/usr/")) {
+		home := os.Getenv("HOME")
+		if home == "" {
+			home = "/data/data/com.termux/files/home"
+		}
+		*dbFlag = filepath.Join(home, ".casaos", "db")
+	}
+
+	_ = os.MkdirAll(*dbFlag, 0755)
 
 	sqliteDB = sqlite.GetDb(*dbFlag)
 	// gredis.GetRedisConn(config.RedisInfo),

@@ -30,8 +30,22 @@ func NewAndroidPaths() *AndroidPaths {
 	}
 }
 
-func (a *AndroidPaths) ConfigDir() string   { return filepath.Join(a.prefix, "etc", "casaos") }
-func (a *AndroidPaths) DataDir() string     { return filepath.Join(a.home, ".casaos", "data") }
+func (a *AndroidPaths) ConfigDir() string {
+	prefixConf := filepath.Join(a.prefix, "etc", "casaos")
+	if _, err := os.Stat(filepath.Join(prefixConf, "casaos.conf")); err == nil {
+		return prefixConf
+	}
+	homeConf := filepath.Join(a.home, ".casaos", "conf")
+	if _, err := os.Stat(filepath.Join(homeConf, "casaos.conf")); err == nil {
+		return homeConf
+	}
+	if err := os.MkdirAll(prefixConf, 0755); err == nil {
+		return prefixConf
+	}
+	_ = os.MkdirAll(homeConf, 0755)
+	return homeConf
+}
+func (a *AndroidPaths) DataDir() string     { return filepath.Join(a.home, ".casaos") }
 func (a *AndroidPaths) RuntimeDir() string  { return filepath.Join(a.home, ".casaos", "run") }
 func (a *AndroidPaths) LogDir() string      { return filepath.Join(a.home, ".casaos", "log") }
 func (a *AndroidPaths) DBDir() string       { return filepath.Join(a.home, ".casaos", "db") }

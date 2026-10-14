@@ -12,9 +12,12 @@ package sqlite
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
-	"github.com/IceWhaleTech/CasaOS/pkg/utils/file"
+	"github.com/IceWhaleTech/CasaOS/pkg/platform"
 	model2 "github.com/IceWhaleTech/CasaOS/service/model"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
@@ -26,13 +29,36 @@ func GetDb(dbPath string) *gorm.DB {
 	if gdb != nil {
 		return gdb
 	}
-	// Refer https://github.com/go-sql-driver/mysql#dsn-data-source-name
-	// dsn := fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?charset=utf8mb4&parseTime=True&loc=Local", m.User, m.PWD, m.IP, m.Port, m.DBName)
-	// db, err := gorm.Open(mysql2.Open(dsn), &gorm.Config{})
-	file.IsNotExistMkDir(dbPath)
-	db, err := gorm.Open(sqlite.Open(dbPath+"/casaOS.db"), &gorm.Config{})
+
+	// Termux / Android path sanitization
+	if platform.IsAndroid() || strings.HasPrefix(dbPath, "/var/") || strings.HasPrefix(dbPath, "/usr/") {
+		home := os.Getenv("HOME")
+		if home == "" {
+			home = "/data/data/com.termux/files/home"
+		}
+		dbPath = filepath.Join(home, ".casaos", "db")
+	}
+
+	// Clean up duplicate /db/db if present
+	if strings.HasSuffix(dbPath, filepath.Join("db", "db")) {
+		dbPath = filepath.Dir(dbPath)
+	}
+
+	// Ensure database directory exists with proper permissions
+	if err := os.MkdirAll(dbPath, 0755); err != nil {
+		home := os.Getenv("HOME")
+		if home == "" {
+			home = "/data/data/com.termux/files/home"
+		}
+		dbPath = filepath.Join(home, ".casaos", "db")
+		_ = os.MkdirAll(dbPath, 0755)
+	}
+
+	dbFile := filepath.Join(dbPath, "casaOS.db")
+	db, err := gorm.Open(sqlite.Open(dbFile), &gorm.Config{})
 	if err != nil {
-		panic("sqlite connect error")
+		fmt.Printf("[error] failed to initialize database at %s: %v\n", dbFile, err)
+		panic(fmt.Sprintf("sqlite connect error: %v", err))
 	}
 
 	c, _ := db.DB()

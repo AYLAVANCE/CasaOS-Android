@@ -11,9 +11,30 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/constants"
+	"github.com/IceWhaleTech/CasaOS/pkg/platform"
 )
 
 var CasaOSConfigFilePath = filepath.Join(constants.DefaultConfigPath, "casaos.conf")
+
+func init() {
+	if platform.IsAndroid() {
+		home := os.Getenv("HOME")
+		if home == "" {
+			home = "/data/data/com.termux/files/home"
+		}
+		prefix := os.Getenv("PREFIX")
+		if prefix == "" {
+			prefix = "/data/data/com.termux/files/usr"
+		}
+		prefixConf := filepath.Join(prefix, "etc", "casaos", "casaos.conf")
+		if _, err := os.Stat(prefixConf); err == nil {
+			CasaOSConfigFilePath = prefixConf
+		} else {
+			CasaOSConfigFilePath = filepath.Join(home, ".casaos", "conf", "casaos.conf")
+		}
+	}
+}
