@@ -1,0 +1,27 @@
+services:
+  - name: casaos-message-bus
+    command: casaos-message-bus
+    args: ["-c", "{{CONFIG_DIR}}/message-bus.conf"]
+    health_check: http://127.0.0.1:{{PORT}}/health
+    depends_on: []
+    restart_policy: always
+    restart_delay: 2s
+    max_restarts: 10
+
+  - name: casaos-user-service
+    command: casaos-user-service
+    args: ["-c", "{{CONFIG_DIR}}/user-service.conf"]
+    depends_on: [casaos-message-bus]
+    restart_policy: always
+
+  - name: casaos-gateway
+    command: casaos-gateway
+    args: ["-c", "{{CONFIG_DIR}}/gateway.ini"]
+    depends_on: [casaos-message-bus]
+    restart_policy: always
+
+  - name: casaos
+    command: casaos
+    args: ["-c", "{{CONFIG_DIR}}/casaos.conf"]
+    depends_on: [casaos-message-bus, casaos-user-service, casaos-gateway]
+    restart_policy: always

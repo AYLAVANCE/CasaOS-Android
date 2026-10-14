@@ -35,8 +35,13 @@ __debug_bin
 main
 github.com
 .all-contributorsrc
-dist
-CasaOS
+/CasaOS
+/casaos
+/build/sysroot/usr/bin/
+!api/casaos/
+!api/casaos/*
+!build/sysroot/etc/casaos/
+!build/sysroot/etc/casaos/*
 
 # System Files
 .DS_Store
