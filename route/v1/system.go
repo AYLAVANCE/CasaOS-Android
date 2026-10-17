@@ -320,7 +320,9 @@ func GetSystemProxy(ctx echo.Context) error {
 	}
 	defer resp.Body.Close()
 	for k, v := range ctx.Request().Header {
-		ctx.Request().Header.Add(k, v[0])
+		if len(v) > 0 {
+			ctx.Request().Header.Add(k, v[0])
+		}
 	}
 	rda, _ := ioutil.ReadAll(resp.Body)
 	//	json.NewEncoder(c.Writer).Encode(json.RawMessage(string(rda)))
