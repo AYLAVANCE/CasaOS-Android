@@ -7,6 +7,7 @@ import (
 	_ "embed"
 	"flag"
 	"fmt"
+	"mime"
 	"net"
 	"net/http"
 	"os"
@@ -247,32 +248,109 @@ func main() {
 	// })
 	// go http.ListenAndServe(":8081", nil)
 
-	var rootHandler http.Handler = mux
+	_ = mime.AddExtensionType(".js", "application/javascript")
+	_ = mime.AddExtensionType(".mjs", "application/javascript")
+	_ = mime.AddExtensionType(".css", "text/css")
+	_ = mime.AddExtensionType(".svg", "image/svg+xml")
+	_ = mime.AddExtensionType(".json", "application/json")
+	_ = mime.AddExtensionType(".webmanifest", "application/manifest+json")
+	_ = mime.AddExtensionType(".woff2", "font/woff2")
+	_ = mime.AddExtensionType(".woff", "font/woff")
+	_ = mime.AddExtensionType(".ttf", "font/ttf")
+
+	uiCandidates := []string{}
+	if platform.Provider != nil && platform.Provider.WWWDir() != "" {
+		uiCandidates = append(uiCandidates, platform.Provider.WWWDir())
+	}
+	if home := os.Getenv("HOME"); home != "" {
+		uiCandidates = append(uiCandidates, filepath.Join(home, ".casaos", "www"))
+	}
+	uiCandidates = append(uiCandidates, "/data/data/com.termux/files/home/.casaos/www")
+	if prefix := os.Getenv("PREFIX"); prefix != "" {
+		uiCandidates = append(uiCandidates, filepath.Join(prefix, "var", "lib", "casaos", "www"))
+	}
+	uiCandidates = append(uiCandidates, "/var/lib/casaos/www")
 
 	wwwDir := ""
-	if platform.Provider != nil {
-		wwwDir = platform.Provider.WWWDir()
+	for _, cand := range uiCandidates {
+		if cand == "" {
+			continue
+		}
+		if fi, err := os.Stat(filepath.Join(cand, "index.html")); err == nil && !fi.IsDir() {
+			wwwDir = cand
+			break
+		}
 	}
 	if wwwDir == "" {
-		home := os.Getenv("HOME")
-		if home == "" {
-			home = "/data/data/com.termux/files/home"
-		}
-		wwwDir = filepath.Join(home, ".casaos", "www")
-	}
-
-	if info, err := os.Stat(wwwDir); err == nil && info.IsDir() {
-		fileServer := http.FileServer(http.Dir(wwwDir))
-		rootHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			path := strings.TrimPrefix(r.URL.Path, "/")
-			firstSegment := strings.Split(path, "/")[0]
-			if _, ok := mux.HandlerMap[firstSegment]; ok {
-				mux.ServeHTTP(w, r)
-				return
+		if platform.Provider != nil && platform.Provider.WWWDir() != "" {
+			wwwDir = platform.Provider.WWWDir()
+		} else {
+			home := os.Getenv("HOME")
+			if home == "" {
+				home = "/data/data/com.termux/files/home"
 			}
-			fileServer.ServeHTTP(w, r)
-		})
+			wwwDir = filepath.Join(home, ".casaos", "www")
+		}
 	}
+	_ = os.MkdirAll(wwwDir, 0755)
+
+	fileServer := http.FileServer(http.Dir(wwwDir))
+	indexPath := filepath.Join(wwwDir, "index.html")
+
+	var rootHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/")
+		firstSegment := strings.Split(path, "/")[0]
+
+		if firstSegment == "ping" {
+			v1Router.ServeHTTP(w, r)
+			return
+		}
+
+		if _, ok := mux.HandlerMap[firstSegment]; ok {
+			mux.ServeHTTP(w, r)
+			return
+		}
+
+		if _, err := os.Stat(indexPath); os.IsNotExist(err) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>CasaOS Android</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .card { background: #1e293b; border-radius: 12px; padding: 32px; max-width: 640px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; }
+        h1 { color: #38bdf8; margin-top: 0; font-size: 22px; }
+        p { color: #94a3b8; font-size: 14px; line-height: 1.6; }
+        pre { background: #0b0f19; padding: 14px; border-radius: 8px; overflow-x: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; color: #4ade80; border: 1px solid #1e293b; white-space: pre-wrap; word-break: break-all; }
+        .badge { display: inline-block; background: #0284c7; color: #fff; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: bold; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <span class="badge">CasaOS Android Backend Running</span>
+        <h1>CasaOS Dashboard Assets Missing</h1>
+        <p>The CasaOS server daemon is active and listening, but frontend static assets are missing at <code>` + wwwDir + `</code>.</p>
+        <p>Run the following command in Termux to download and install the official UI assets:</p>
+        <pre>TMP_UI=$(mktemp -d) &amp;&amp; curl -sSL https://github.com/IceWhaleTech/CasaOS-UI/releases/download/v0.4.25/linux-all-casaos-v0.4.25.tar.gz | tar -xz -C "$TMP_UI" &amp;&amp; mkdir -p ~/.casaos/www &amp;&amp; cp -rf "$TMP_UI"/build/sysroot/var/lib/casaos/www/* ~/.casaos/www/ &amp;&amp; rm -rf "$TMP_UI"</pre>
+        <p>Once completed, refresh this page to load your dashboard.</p>
+    </div>
+</body>
+</html>`))
+			return
+		}
+
+		targetFile := filepath.Join(wwwDir, filepath.Clean("/"+path))
+		if fi, err := os.Stat(targetFile); err == nil && !fi.IsDir() {
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+
+		http.ServeFile(w, r, indexPath)
+	})
 
 	s := &http.Server{
 		Handler:           rootHandler,

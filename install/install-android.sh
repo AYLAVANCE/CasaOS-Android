@@ -29,7 +29,7 @@ echo -e "${YELLOW}Updating packages...${NC}"
 pkg update -y && pkg upgrade -y
 
 echo -e "${YELLOW}Installing dependencies...${NC}"
-pkg install -y termux-api termux-tools openssl git golang rclone
+pkg install -y termux-api termux-tools openssl git golang rclone curl tar
 
 echo -e "${YELLOW}Checking Android storage permission...${NC}"
 if [ ! -d "$HOME/storage" ]; then
@@ -43,6 +43,16 @@ fi
 echo -e "${YELLOW}Setting up directory structure...${NC}"
 mkdir -p ~/.casaos/{data,run,log,db,www,appdata,containers,tmp,conf,mnt}
 mkdir -p $PREFIX/etc/casaos
+
+echo -e "${YELLOW}Downloading and installing CasaOS UI dashboard...${NC}"
+TMP_UI_DIR=$(mktemp -d)
+if curl -sSL https://github.com/IceWhaleTech/CasaOS-UI/releases/download/v0.4.25/linux-all-casaos-v0.4.25.tar.gz | tar -xz -C "$TMP_UI_DIR"; then
+    if [ -d "$TMP_UI_DIR/build/sysroot/var/lib/casaos/www" ]; then
+        cp -rf "$TMP_UI_DIR/build/sysroot/var/lib/casaos/www/"* ~/.casaos/www/
+        echo -e "${GREEN}CasaOS UI dashboard installed successfully.${NC}"
+    fi
+fi
+rm -rf "$TMP_UI_DIR"
 
 echo -e "${YELLOW}Downloading CasaOS Android source...${NC}"
 if [ -d "CasaOS-Android" ]; then
