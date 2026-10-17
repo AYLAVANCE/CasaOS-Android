@@ -140,7 +140,26 @@ func main() {
 	crontab.Start()
 	defer crontab.Stop()
 
-	listener, err := net.Listen("tcp", net.JoinHostPort(LOCALHOST, "0"))
+	managementFile := filepath.Join(config.CommonInfo.RuntimePath, "management.url")
+	var listener net.Listener
+	var err error
+
+	port := "8080"
+	if config.ServerInfo.HttpPort != "" {
+		port = config.ServerInfo.HttpPort
+	}
+
+	if _, statErr := os.Stat(managementFile); statErr == nil {
+		// External gateway is present; listen on ephemeral local port and register routes
+		listener, err = net.Listen("tcp", net.JoinHostPort(LOCALHOST, "0"))
+	} else {
+		// Standalone mode: listen directly on standard port (0.0.0.0:8080) so UI/API are reachable
+		listener, err = net.Listen("tcp", ":"+port)
+		if err != nil {
+			// Fallback to ephemeral port if preferred port is already bound
+			listener, err = net.Listen("tcp", net.JoinHostPort(LOCALHOST, "0"))
+		}
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -169,8 +188,7 @@ func main() {
 			Target: "http://" + listener.Addr().String(),
 		})
 		if err != nil {
-			fmt.Println("err", err)
-			panic(err)
+			fmt.Printf("warn: failed to register route %s with gateway: %v\n", apiPath, err)
 		}
 	}
 
@@ -229,8 +247,35 @@ func main() {
 	// })
 	// go http.ListenAndServe(":8081", nil)
 
+	var rootHandler http.Handler = mux
+
+	wwwDir := ""
+	if platform.Provider != nil {
+		wwwDir = platform.Provider.WWWDir()
+	}
+	if wwwDir == "" {
+		home := os.Getenv("HOME")
+		if home == "" {
+			home = "/data/data/com.termux/files/home"
+		}
+		wwwDir = filepath.Join(home, ".casaos", "www")
+	}
+
+	if info, err := os.Stat(wwwDir); err == nil && info.IsDir() {
+		fileServer := http.FileServer(http.Dir(wwwDir))
+		rootHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			path := strings.TrimPrefix(r.URL.Path, "/")
+			firstSegment := strings.Split(path, "/")[0]
+			if _, ok := mux.HandlerMap[firstSegment]; ok {
+				mux.ServeHTTP(w, r)
+				return
+			}
+			fileServer.ServeHTTP(w, r)
+		})
+	}
+
 	s := &http.Server{
-		Handler:           mux,
+		Handler:           rootHandler,
 		ReadHeaderTimeout: 5 * time.Second, // fix G112: Potential slowloris attack (see https://github.com/securego/gosec)
 	}
 

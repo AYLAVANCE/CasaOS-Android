@@ -11,13 +11,36 @@
 package service
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/IceWhaleTech/CasaOS-Common/external"
+	common_model "github.com/IceWhaleTech/CasaOS-Common/model"
 	"github.com/IceWhaleTech/CasaOS/codegen/message_bus"
 	"github.com/IceWhaleTech/CasaOS/pkg/config"
 	"github.com/gorilla/websocket"
 	"github.com/patrickmn/go-cache"
 	"gorm.io/gorm"
 )
+
+type NullManagementService struct{}
+
+func (n *NullManagementService) CreateRoute(route *common_model.Route) error {
+	return nil
+}
+
+func (n *NullManagementService) ChangePort(request *common_model.ChangePortRequest) error {
+	return nil
+}
+
+func (n *NullManagementService) GetPort() (error, string) {
+	return nil, `{"data": 8080}`
+}
+
+func NewNullManagementService() external.ManagementService {
+	return &NullManagementService{}
+}
 
 var Cache *cache.Cache
 
@@ -46,9 +69,19 @@ type Repository interface {
 }
 
 func NewService(db *gorm.DB, RuntimePath string) Repository {
-	gatewayManagement, err := external.NewManagementService(RuntimePath)
-	if err != nil && len(RuntimePath) > 0 {
-		panic(err)
+	var gatewayManagement external.ManagementService
+
+	managementFile := filepath.Join(RuntimePath, external.ManagementURLFilename)
+	if _, err := os.Stat(managementFile); err == nil {
+		var gwErr error
+		gatewayManagement, gwErr = external.NewManagementService(RuntimePath)
+		if gwErr != nil {
+			fmt.Printf("[warn] failed to connect to gateway at %s: %v, using standalone fallback\n", managementFile, gwErr)
+			gatewayManagement = NewNullManagementService()
+		}
+	} else {
+		// management.url not present - running in standalone mode without external gateway
+		gatewayManagement = NewNullManagementService()
 	}
 
 	return &store{
