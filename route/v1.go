@@ -39,6 +39,19 @@ func InitV1Router() http.Handler {
 		return ctx.String(200, "pong")
 	})
 	e.GET("/v1/recover/:type", v1.GetRecoverStorage)
+
+	// User management endpoints (unauthenticated)
+	e.GET("/v1/users/status", v1.GetUserStatus)
+	e.POST("/v1/users/register", v1.PostUserRegister)
+	e.POST("/v1/users/login", v1.PostUserLogin)
+	e.POST("/v1/users/refresh", v1.PostUserRefresh)
+	e.GET("/v1/users/avatar", v1.GetUserAvatar)
+	e.GET("/v1/users/current", v1.GetCurrentUser)
+	e.GET("/v1/users/current/custom/:key", v1.GetUserCustom)
+	e.POST("/v1/users/current/custom/:key", v1.PostUserCustom)
+	e.GET("/v1/users/name", v1.GetUserNameList)
+	e.GET("/.well-known/jwks.json", v1.GetJWKS)
+
 	v1Group := e.Group("/v1")
 	//	e.Any("/v1/test", v1.CheckNetwork)
 	v1Group.Use(echo_middleware.JWTWithConfig(echo_middleware.JWTConfig{
@@ -46,7 +59,12 @@ func InitV1Router() http.Handler {
 			return c.RealIP() == "::1" || c.RealIP() == "127.0.0.1"
 		},
 		ParseTokenFunc: func(token string, c echo.Context) (interface{}, error) {
-			valid, claims, err := jwt.Validate(token, func() (*ecdsa.PublicKey, error) { return external.GetPublicKey(config.CommonInfo.RuntimePath) })
+			valid, claims, err := jwt.Validate(token, func() (*ecdsa.PublicKey, error) {
+				if pub := v1.GetJWKSPublicKey(); pub != nil {
+					return pub, nil
+				}
+				return external.GetPublicKey(config.CommonInfo.RuntimePath)
+			})
 			if err != nil || !valid {
 				return nil, echo.ErrUnauthorized
 			}

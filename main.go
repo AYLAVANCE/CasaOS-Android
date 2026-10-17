@@ -166,6 +166,7 @@ func main() {
 	}
 	routers := []string{
 		"/v1/sys",
+		"/v1/users",
 		"/v1/port",
 		"/v1/file",
 		"/v1/folder",
@@ -229,6 +230,9 @@ func main() {
 			zap.Any("filepath", urlFilePath),
 		)
 	}
+
+	userURLFilePath := filepath.Join(config.CommonInfo.RuntimePath, "user-service.url")
+	_ = file.CreateFileAndWriteContent(userURLFilePath, "http://"+listener.Addr().String())
 
 	// run any script that needs to be executed
 	scriptDirectory := filepath.Join(constants.DefaultConfigPath, "start.d")
@@ -301,7 +305,7 @@ func main() {
 		path := strings.TrimPrefix(r.URL.Path, "/")
 		firstSegment := strings.Split(path, "/")[0]
 
-		if firstSegment == "ping" {
+		if firstSegment == "ping" || firstSegment == ".well-known" {
 			v1Router.ServeHTTP(w, r)
 			return
 		}

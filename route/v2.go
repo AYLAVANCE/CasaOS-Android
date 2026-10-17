@@ -16,6 +16,7 @@ import (
 
 	"github.com/IceWhaleTech/CasaOS-Common/external"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/jwt"
+	v1 "github.com/IceWhaleTech/CasaOS/route/v1"
 	v2Route "github.com/IceWhaleTech/CasaOS/route/v2"
 	"github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -79,7 +80,12 @@ func InitV2Router() http.Handler {
 			// return true
 		},
 		ParseTokenFunc: func(token string, c echo.Context) (interface{}, error) {
-			valid, claims, err := jwt.Validate(token, func() (*ecdsa.PublicKey, error) { return external.GetPublicKey(config.CommonInfo.RuntimePath) })
+			valid, claims, err := jwt.Validate(token, func() (*ecdsa.PublicKey, error) {
+				if pub := v1.GetJWKSPublicKey(); pub != nil {
+					return pub, nil
+				}
+				return external.GetPublicKey(config.CommonInfo.RuntimePath)
+			})
 			if err != nil || !valid {
 				return nil, echo.ErrUnauthorized
 			}
