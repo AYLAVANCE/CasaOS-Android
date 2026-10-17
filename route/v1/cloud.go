@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"strings"
+	"path/filepath"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS/drivers/dropbox"
@@ -58,7 +58,7 @@ func UmountStorage(ctx echo.Context) error {
 	if err != nil {
 		return ctx.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.SERVICE_ERROR, Message: common_err.GetMsg(common_err.SERVICE_ERROR), Data: err.Error()})
 	}
-	service.MyService.Storage().DeleteConfigByName(strings.ReplaceAll(mountPoint, "/mnt/", ""))
+	service.MyService.Storage().DeleteConfigByName(filepath.Base(mountPoint))
 	return ctx.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: "success"})
 }
 

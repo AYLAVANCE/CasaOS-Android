@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
+	"github.com/IceWhaleTech/CasaOS/pkg/platform"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 )
@@ -44,9 +48,66 @@ type RemotesResult struct {
 var UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
 var DefaultTimeout = time.Second * 30
 
-func NewRestyClient() *resty.Client {
+func RcloneSocketPath() string {
+	if platform.IsAndroid() {
+		return "/data/data/com.termux/files/home/.casaos/run/rclone.sock"
+	}
+	home := os.Getenv("HOME")
+	if home != "" && (os.Getenv("TERMUX_VERSION") != "" || os.Getenv("PREFIX") != "") {
+		return filepath.Join(home, ".casaos", "run", "rclone.sock")
+	}
+	termuxSock := "/data/data/com.termux/files/home/.casaos/run/rclone.sock"
+	if _, err := os.Stat(termuxSock); err == nil {
+		return termuxSock
+	}
+	if _, err := os.Stat("/var/run"); os.IsPermission(err) || os.IsNotExist(err) {
+		if home != "" {
+			return filepath.Join(home, ".casaos", "run", "rclone.sock")
+		}
+		return termuxSock
+	}
+	return "/var/run/rclone/rclone.sock"
+}
 
-	unixSocket := "/var/run/rclone/rclone.sock"
+func EnsureRcloneDaemon() {
+	sockPath := RcloneSocketPath()
+	_ = os.MkdirAll(filepath.Dir(sockPath), 0755)
+
+	if _, err := os.Stat(sockPath); err == nil {
+		conn, dialErr := net.DialTimeout("unix", sockPath, 500*time.Millisecond)
+		if dialErr == nil {
+			conn.Close()
+			return
+		}
+		_ = os.Remove(sockPath)
+	}
+
+	rcloneBin, err := exec.LookPath("rclone")
+	if err != nil {
+		return
+	}
+
+	cmd := exec.Command(rcloneBin, "rcd", "--rc-addr", "unix://"+sockPath, "--rc-no-auth", "--rc-allow-origin", "*")
+	if err := cmd.Start(); err != nil {
+		logger.Error("failed to start rclone daemon", zap.Error(err))
+		return
+	}
+	go func() {
+		_ = cmd.Wait()
+	}()
+
+	for i := 0; i < 20; i++ {
+		time.Sleep(100 * time.Millisecond)
+		if conn, err := net.Dial("unix", sockPath); err == nil {
+			conn.Close()
+			break
+		}
+	}
+}
+
+func NewRestyClient() *resty.Client {
+	unixSocket := RcloneSocketPath()
+	_ = os.MkdirAll(filepath.Dir(unixSocket), 0755)
 
 	transport := http.Transport{
 		Dial: func(_, _ string) (net.Conn, error) {
@@ -55,9 +116,8 @@ func NewRestyClient() *resty.Client {
 	}
 
 	client := resty.New()
-
 	client.SetTransport(&transport).SetBaseURL("http://localhost")
-	client.SetRetryCount(3).SetRetryWaitTime(5*time.Second).SetTimeout(DefaultTimeout).SetHeader("User-Agent", UserAgent)
+	client.SetRetryCount(3).SetRetryWaitTime(2 * time.Second).SetTimeout(DefaultTimeout).SetHeader("User-Agent", UserAgent)
 	return client
 }
 

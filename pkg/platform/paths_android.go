@@ -53,6 +53,11 @@ func (a *AndroidPaths) WWWDir() string      { return filepath.Join(a.home, ".cas
 func (a *AndroidPaths) ShellDir() string    { return filepath.Join(a.prefix, "share", "casaos", "shell") }
 func (a *AndroidPaths) StorageRoot() string { return filepath.Join(a.home, "storage", "shared", "CasaOS") }
 func (a *AndroidPaths) UserDataDir() string { return filepath.Join(a.home, ".casaos", "conf") }
+func (a *AndroidPaths) MountDir() string {
+	mntDir := filepath.Join(a.home, ".casaos", "mnt")
+	_ = os.MkdirAll(mntDir, 0755)
+	return mntDir
+}
 
 func Init() {
 	Provider = NewAndroidPaths()

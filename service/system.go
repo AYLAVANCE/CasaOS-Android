@@ -1,8 +1,8 @@
 package service
 
 import (
+	crand "crypto/rand"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	net2 "net"
@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/IceWhaleTech/CasaOS/pkg/platform"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/command"
 	exec2 "github.com/IceWhaleTech/CasaOS-Common/utils/exec"
@@ -121,7 +123,11 @@ func (c *systemService) GetDeviceInfo() model.DeviceInfo {
 }
 
 func (c *systemService) GenreateSystemEntry() {
-	modelsPath := "/var/lib/casaos/www/modules"
+	modelsPath := filepath.Join(config.AppInfo.DBPath, "www", "modules")
+	if platform.Provider != nil {
+		modelsPath = filepath.Join(platform.Provider.WWWDir(), "modules")
+	}
+	_ = os.MkdirAll(modelsPath, 0755)
 	entryFileName := "entry.json"
 	entryFilePath := filepath.Join(config.AppInfo.DBPath, "db", entryFileName)
 	file.IsNotExistCreateFile(entryFilePath)
@@ -150,7 +156,11 @@ func (c *systemService) GenreateSystemEntry() {
 }
 
 func (c *systemService) GetSystemEntry() string {
-	modelsPath := "/var/lib/casaos/www/modules"
+	modelsPath := filepath.Join(config.AppInfo.DBPath, "www", "modules")
+	if platform.Provider != nil {
+		modelsPath = filepath.Join(platform.Provider.WWWDir(), "modules")
+	}
+	_ = os.MkdirAll(modelsPath, 0755)
 	entryFileName := "entry.json"
 	dir, err := os.ReadDir(modelsPath)
 	if err != nil {
@@ -176,19 +186,42 @@ func (c *systemService) GetSystemEntry() string {
 }
 
 func (c *systemService) GetMacAddress() (string, error) {
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		return "", err
-	}
-	nets := MyService.System().GetNet(true)
-	for _, v := range interfaces {
-		for _, n := range nets {
-			if v.Name == n {
-				return v.HardwareAddr, nil
+	interfaces, err := net2.Interfaces()
+	if err == nil {
+		nets := MyService.System().GetNet(true)
+		for _, v := range interfaces {
+			for _, n := range nets {
+				if v.Name == n && len(v.HardwareAddr.String()) > 0 && v.HardwareAddr.String() != "00:00:00:00:00:00" && v.HardwareAddr.String() != "02:00:00:00:00:00" {
+					return v.HardwareAddr.String(), nil
+				}
+			}
+		}
+		for _, v := range interfaces {
+			if len(v.HardwareAddr.String()) > 0 && v.HardwareAddr.String() != "00:00:00:00:00:00" && v.HardwareAddr.String() != "02:00:00:00:00:00" {
+				return v.HardwareAddr.String(), nil
 			}
 		}
 	}
-	return "", errors.New("not found")
+
+	// Persistent fallback MAC for Android/restricted environments
+	macFilePath := filepath.Join(config.AppInfo.UserDataPath, "device_mac")
+	if data, readErr := os.ReadFile(macFilePath); readErr == nil {
+		mac := strings.TrimSpace(string(data))
+		if len(mac) == 17 {
+			return mac, nil
+		}
+	}
+
+	// Generate persistent random locally-administered unicast MAC (02:xx:xx:xx:xx:xx)
+	buf := make([]byte, 6)
+	if _, randErr := crand.Read(buf); randErr != nil {
+		return "02:ca:5a:05:00:01", nil
+	}
+	buf[0] = (buf[0] | 0x02) & 0xfe // locally administered, unicast
+	mac := fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5])
+	_ = os.MkdirAll(filepath.Dir(macFilePath), 0755)
+	_ = os.WriteFile(macFilePath, []byte(mac), 0644)
+	return mac, nil
 }
 
 func (c *systemService) MkdirAll(path string) (int, error) {

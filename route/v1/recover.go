@@ -11,6 +11,7 @@ import (
 	"github.com/IceWhaleTech/CasaOS/drivers/dropbox"
 	"github.com/IceWhaleTech/CasaOS/drivers/google_drive"
 	"github.com/IceWhaleTech/CasaOS/drivers/onedrive"
+	"github.com/IceWhaleTech/CasaOS/pkg/platform"
 	"github.com/IceWhaleTech/CasaOS/service"
 	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
@@ -86,10 +87,10 @@ func GetRecoverStorage(ctx echo.Context) error {
 		dmap["client_id"] = google_drive.ClientID
 		dmap["client_secret"] = google_drive.ClientSecret
 		dmap["scope"] = "drive"
-		dmap["mount_point"] = "/mnt/" + username
+		dmap["mount_point"] = platform.SanitizeMountPath(username)
 		dmap["token"] = `{"access_token":"` + google_drive.AccessToken + `","token_type":"Bearer","refresh_token":"` + google_drive.RefreshToken + `","expiry":"` + currentDate + `T` + currentTime.Add(time.Hour*1).Add(time.Minute*50).Format("15:04:05") + `Z"}`
 		service.MyService.Storage().CreateConfig(dmap, username, "drive")
-		service.MyService.Storage().MountStorage("/mnt/"+username, username+":")
+		service.MyService.Storage().MountStorage(dmap["mount_point"], username+":")
 		notify := make(map[string]interface{})
 		notify["status"] = "success"
 		notify["message"] = "Success"
@@ -160,9 +161,9 @@ func GetRecoverStorage(ctx echo.Context) error {
 		dmap["client_id"] = dropbox.AppKey
 		dmap["client_secret"] = dropbox.AppSecret
 		dmap["token"] = `{"access_token":"` + dropbox.AccessToken + `","token_type":"bearer","refresh_token":"` + dropbox.Addition.RefreshToken + `","expiry":"` + currentDate + `T` + currentTime.Add(time.Hour*3).Add(time.Minute*50).Format("15:04:05") + `.780385354Z"}`
-		dmap["mount_point"] = "/mnt/" + username
+		dmap["mount_point"] = platform.SanitizeMountPath(username)
 		service.MyService.Storage().CreateConfig(dmap, username, "dropbox")
-		service.MyService.Storage().MountStorage("/mnt/"+username, username+":")
+		service.MyService.Storage().MountStorage(dmap["mount_point"], username+":")
 
 		notify["status"] = "success"
 		notify["message"] = "Success"
@@ -231,11 +232,11 @@ func GetRecoverStorage(ctx echo.Context) error {
 		dmap["client_id"] = onedrive.ClientID
 		dmap["client_secret"] = onedrive.ClientSecret
 		dmap["token"] = `{"access_token":"` + onedrive.AccessToken + `","token_type":"bearer","refresh_token":"` + onedrive.RefreshToken + `","expiry":"` + currentDate + `T` + currentTime.Add(time.Hour*3).Add(time.Minute*50).Format("15:04:05") + `.780385354Z"}`
-		dmap["mount_point"] = "/mnt/" + username
+		dmap["mount_point"] = platform.SanitizeMountPath(username)
 		dmap["drive_id"] = driveId
 		dmap["drive_type"] = driveType
 		service.MyService.Storage().CreateConfig(dmap, username, "onedrive")
-		service.MyService.Storage().MountStorage("/mnt/"+username, username+":")
+		service.MyService.Storage().MountStorage(dmap["mount_point"], username+":")
 
 		notify["status"] = "success"
 		notify["message"] = "Success"

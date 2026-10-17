@@ -24,6 +24,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/IceWhaleTech/CasaOS/model"
+	"github.com/IceWhaleTech/CasaOS/pkg/platform"
 	"github.com/IceWhaleTech/CasaOS/pkg/samba"
 	"github.com/IceWhaleTech/CasaOS/pkg/utils/common_err"
 	"github.com/IceWhaleTech/CasaOS/pkg/utils/file"
@@ -165,7 +166,7 @@ func PostSambaConnectionsCreate(ctx echo.Context) error {
 	connectionDBModel.Host = connection.Host
 	connectionDBModel.Port = connection.Port
 	connectionDBModel.Directories = strings.Join(directories, ",")
-	baseHostPath := "/mnt/" + connection.Host
+	baseHostPath := platform.SanitizeMountPath(connection.Host)
 	connectionDBModel.MountPoint = baseHostPath
 	connection.MountPoint = baseHostPath
 	file.IsNotExistMkDir(baseHostPath)
@@ -192,7 +193,7 @@ func DeleteSambaConnections(ctx echo.Context) error {
 	if err != nil {
 		return ctx.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.SERVICE_ERROR, Message: common_err.GetMsg(common_err.SERVICE_ERROR), Data: err.Error()})
 	}
-	baseHostPath := "/mnt/" + connection.Host
+	baseHostPath := platform.SanitizeMountPath(connection.Host)
 	for _, v := range mountPointList {
 		if service.IsMounted(baseHostPath + "/" + v) {
 			err := service.MyService.Connections().UnmountSmaba(baseHostPath + "/" + v)

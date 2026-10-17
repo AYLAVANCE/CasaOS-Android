@@ -108,6 +108,15 @@ func (l *LinuxPaths) UserDataDir() string {
 	return "/var/lib/casaos/conf"
 }
 
+func (l *LinuxPaths) MountDir() string {
+	if l.isAndroid {
+		mntDir := filepath.Join(l.home, ".casaos", "mnt")
+		_ = os.MkdirAll(mntDir, 0755)
+		return mntDir
+	}
+	return "/mnt"
+}
+
 func Init() {
 	Provider = NewLinuxPaths()
 	Sys = NewLinuxSystem()

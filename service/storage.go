@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
+	"github.com/IceWhaleTech/CasaOS/pkg/platform"
 	"github.com/IceWhaleTech/CasaOS/pkg/utils/file"
 	"github.com/IceWhaleTech/CasaOS/pkg/utils/httper"
 	"go.uber.org/zap"
@@ -25,10 +26,13 @@ type storageStruct struct {
 }
 
 func (s *storageStruct) MountStorage(mountPoint, fs string) error {
+	mountPoint = platform.SanitizeMountPath(mountPoint)
 	file.IsNotExistMkDir(mountPoint)
+	httper.EnsureRcloneDaemon()
 	return httper.Mount(mountPoint, fs)
 }
 func (s *storageStruct) UnmountStorage(mountPoint string) error {
+	mountPoint = platform.SanitizeMountPath(mountPoint)
 	err := httper.Unmount(mountPoint)
 	if err == nil {
 		dir, _ := ioutil.ReadDir(mountPoint)
@@ -41,16 +45,18 @@ func (s *storageStruct) UnmountStorage(mountPoint string) error {
 	return err
 }
 func (s *storageStruct) GetStorages() (httper.MountList, error) {
+	httper.EnsureRcloneDaemon()
 	return httper.GetMountList()
 }
 func (s *storageStruct) CreateConfig(data map[string]string, name string, t string) error {
+	httper.EnsureRcloneDaemon()
 	httper.CreateConfig(data, name, t)
 	return nil
 }
 func (s *storageStruct) CheckAndMountByName(name string) error {
 	storages, _ := MyService.Storage().GetStorages()
 	currentRemote, _ := httper.GetConfigByName(name)
-	mountPoint := currentRemote["mount_point"]
+	mountPoint := platform.SanitizeMountPath(currentRemote["mount_point"])
 	isMount := false
 	for _, v := range storages.MountPoints {
 		if v.MountPoint == mountPoint {
@@ -80,6 +86,7 @@ func (s *storageStruct) CheckAndMountAll() error {
 		if len(mountPoint) == 0 {
 			continue
 		}
+		mountPoint = platform.SanitizeMountPath(mountPoint)
 		isMount := false
 		for _, v := range storages.MountPoints {
 			if v.MountPoint == mountPoint {

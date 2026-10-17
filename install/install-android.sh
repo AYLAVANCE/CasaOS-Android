@@ -29,7 +29,7 @@ echo -e "${YELLOW}Updating packages...${NC}"
 pkg update -y && pkg upgrade -y
 
 echo -e "${YELLOW}Installing dependencies...${NC}"
-pkg install -y termux-api termux-tools openssl git golang
+pkg install -y termux-api termux-tools openssl git golang rclone
 
 echo -e "${YELLOW}Checking Android storage permission...${NC}"
 if [ ! -d "$HOME/storage" ]; then
@@ -41,7 +41,7 @@ else
 fi
 
 echo -e "${YELLOW}Setting up directory structure...${NC}"
-mkdir -p ~/.casaos/{data,run,log,db,www,appdata,containers,tmp,conf}
+mkdir -p ~/.casaos/{data,run,log,db,www,appdata,containers,tmp,conf,mnt}
 mkdir -p $PREFIX/etc/casaos
 
 echo -e "${YELLOW}Downloading CasaOS Android source...${NC}"

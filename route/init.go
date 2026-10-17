@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -22,9 +23,11 @@ import (
 	"github.com/IceWhaleTech/CasaOS/common"
 	"github.com/IceWhaleTech/CasaOS/model"
 	"github.com/IceWhaleTech/CasaOS/pkg/config"
+	"github.com/IceWhaleTech/CasaOS/pkg/platform"
 	"github.com/IceWhaleTech/CasaOS/pkg/samba"
 	"github.com/IceWhaleTech/CasaOS/pkg/utils/encryption"
 	"github.com/IceWhaleTech/CasaOS/pkg/utils/file"
+	"github.com/IceWhaleTech/CasaOS/pkg/utils/httper"
 	v1 "github.com/IceWhaleTech/CasaOS/route/v1"
 	"github.com/IceWhaleTech/CasaOS/service"
 	"go.uber.org/zap"
@@ -44,13 +47,21 @@ func InitInfo() {
 			logger.Error("baseinfo.conf", zap.String("error", err.Error()))
 		}
 	}
-	if file.Exists("/etc/CHANNEL") {
-		channel := file.ReadFullFile("/etc/CHANNEL")
+	channelFile := "/etc/CHANNEL"
+	if platform.IsAndroid() {
+		home := os.Getenv("HOME")
+		if home == "" {
+			home = "/data/data/com.termux/files/home"
+		}
+		channelFile = filepath.Join(home, ".casaos", "conf", "CHANNEL")
+	}
+	if file.Exists(channelFile) {
+		channel := file.ReadFullFile(channelFile)
 		mb.Channel = string(channel)
 	}
 	mac, err := service.MyService.System().GetMacAddress()
-	if err != nil {
-		logger.Error("GetMacAddress", zap.String("error", err.Error()))
+	if err != nil || len(mac) == 0 {
+		mac = "02:ca:5a:05:00:01"
 	}
 	mb.Hash = encryption.GetMD5ByStr(mac)
 	mb.Version = common.VERSION
@@ -80,7 +91,7 @@ func InitNetworkMount() {
 			logger.Error("mount samba err", zap.Any("err", err), zap.Any("info", connection))
 			continue
 		}
-		baseHostPath := "/mnt/" + connection.Host
+		baseHostPath := platform.SanitizeMountPath(connection.Host)
 
 		mountPointList, err := service.MyService.System().GetDirPath(baseHostPath)
 		if err != nil {
@@ -95,13 +106,15 @@ func InitNetworkMount() {
 
 		file.IsNotExistMkDir(baseHostPath)
 		for _, v := range directories {
-			mountPoint := baseHostPath + "/" + v
+			mountPoint := filepath.Join(baseHostPath, v)
 			file.IsNotExistMkDir(mountPoint)
 			service.MyService.Connections().MountSmaba(connection.Username, connection.Host, v, connection.Port, mountPoint, connection.Password)
 		}
 		connection.Directories = strings.Join(directories, ",")
 		service.MyService.Connections().UpdateConnection(&connection)
 	}
+
+	httper.EnsureRcloneDaemon()
 	err := service.MyService.Storage().CheckAndMountAll()
 	if err != nil {
 		logger.Error("mount storage err", zap.Any("err", err))

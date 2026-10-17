@@ -311,7 +311,7 @@ func DirPath(ctx echo.Context) error {
 			info[i].Extensions = ex
 		}
 	}
-	if strings.HasPrefix(req.Path, "/mnt") || strings.HasPrefix(req.Path, "/media") {
+	if strings.HasPrefix(req.Path, "/mnt") || strings.HasPrefix(req.Path, "/media") || strings.Contains(req.Path, ".casaos/mnt") {
 		for i := (req.Index - 1) * req.Size; i < forEnd; i++ {
 			ex := info[i].Extensions
 			if ex == nil {

@@ -20,6 +20,12 @@ services:
     depends_on: [casaos-message-bus]
     restart_policy: always
 
+  - name: rclone
+    command: rclone
+    args: ["rcd", "--rc-addr", "unix:///data/data/com.termux/files/home/.casaos/run/rclone.sock", "--rc-no-auth", "--rc-allow-origin", "*"]
+    depends_on: []
+    restart_policy: always
+
   - name: casaos
     command: casaos
     args: ["-c", "{{CONFIG_DIR}}/casaos.conf"]
